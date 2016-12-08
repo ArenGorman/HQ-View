@@ -4,16 +4,21 @@
 import xmlrpclib
 import sys
 import operator
+import time
 from datetime import datetime
 from PyQt4 import QtCore, QtGui
 from multiprocessing import cpu_count
 
 class worker(QtCore.QThread):
     # testsignal = QtCore.pyqtSignal(object, 'bool')
-    def __init__(self, models, children=False):
+    def __init__(self, models, children=False, view=None):
         super(self.__class__,self).__init__()
         self.models = models
         self.children = children
+        self.view = view
+
+    def __del__(self):
+        self.wait()
 
     def buttonDisabler(self,chk):
         if chk:
@@ -26,17 +31,16 @@ class worker(QtCore.QThread):
             sb.showMessage("Updating lists")
 
     def run(self):
+        srv = xmlrpclib.ServerProxy(server_adress)
         if not self.children:
             for i in self.models:
                 try:
                     i.update_models()
                 except Exception:
                     print "Failed to update"
-        else:
-            print 'getting children now'
-            modelChildren = jobsTable(hq_server,False,False)
-            ix = table_fin.selectedIndexes()[0].row()
-            parentId = self.models[0].arraydata[ix][0]
+        else:            
+            ix = self.view.selectedIndexes()[0].row()
+            parentId = self.models[0].arraydata[ix][0] #Gets Parent's ID
             array = modelChildren.getChildren(parentId)
 
 
@@ -48,20 +52,22 @@ class jobsTable(QtCore.QAbstractTableModel):
     getFinishedJobs()::list()
 
     """
-    def __init__(self, server, finished, children=False, parent=None):
-        #super(jobsTable,self).__init__()
-        QtCore.QAbstractTableModel.__init__(self, parent)
-        self.server = server
+    def __init__(self, finished, server=None, children=False, parent=None):
+        super(self.__class__,self).__init__()
+        # QtCore.QAbstractTableModel.__init__(self, parent)
+        self.server = xmlrpclib.ServerProxy(server_adress)
         self.finished = finished
         self.cols = 0
         self.rows = 0
-        self.children = []
         # self.update_models()
         #Headers
-        if finished:
+        if children:
+            self.headerdata = ['Id','Name','Priority','Status','Progress','Submitted By','Start time','Elapsed time','Completion time', 'Clients']
+        elif finished:
             self.headerdata = ['Id','Name','Status','Time submitted','Submitted by','Completion time']
         else:
             self.headerdata = ['Id','Name','Priority','Status','Progress','Time submitted','Submitted by','Elapsed time','ETA']
+            
 
     def getJobs(self):
         #This function returns class' property "arraydata" to represent data for the table
@@ -124,11 +130,11 @@ class jobsTable(QtCore.QAbstractTableModel):
             self.cols = len(array[0])
             self.rows = len(array)
         return array #returns only necessary list of lists of values
-        #return run_jobs #returns the whole dictionary for debugging REMOVE IN PRODUCTION
 
     def getChildren(self,parentId):
         children_ids = self.server.getJob(parentId)['children']
         children_jobs = self.server.getJobs(children_ids)
+
         array = []
         for i,item in enumerate(children_jobs):
             array.append([])
@@ -138,7 +144,10 @@ class jobsTable(QtCore.QAbstractTableModel):
             array[i].append(item['status'])
             array[i].append(round(item['progress']*100))
             array[i].append("Submitted By")
-            array[i].append(item['startTime'])
+            if item['startTime']:
+                array[i].append(item['startTime'])
+            else:
+                array[i].append(None)
             if item['startTime'] and self.server.getServerTime(): #checks if both timestamps exist
                 array[i].append(self.spentTime(item['startTime'],self.server.getServerTime())) #Elapsed time
             else:
@@ -149,9 +158,12 @@ class jobsTable(QtCore.QAbstractTableModel):
                 array[i].append(None)
             if item['clients']:
                 array[i].append(item['clients'][0]['hostname'])
+            else:
+                array[i].append(None)
         if array!=[]:
             self.cols = len(array[0])
             self.rows = len(array)
+            # print array
         self.arraydata = array
         return array
 
@@ -180,7 +192,6 @@ class jobsTable(QtCore.QAbstractTableModel):
                 return QtGui.QBrush(QtCore.Qt.darkCyan)
             elif self.arraydata[index.row()][index.column()]=='failed':
                 return QtGui.QBrush(QtCore.Qt.red)
-
         if role==QtCore.Qt.ForegroundRole:
             if self.arraydata[index.row()][index.column()]=='cancelled':
                     return QtGui.QBrush(QtCore.Qt.white)
@@ -232,25 +243,33 @@ def resizeTableSlot():
     table_fin.resizeColumnsToContents()
     table_fin.resizeRowsToContents()
     table_fin.setSortingEnabled(True)
-    table_unfin.resizeColumnsToContents()
-    table_unfin.resizeRowsToContents()
-    table_unfin.setSortingEnabled(True)
+    table_run.resizeColumnsToContents()
+    table_run.resizeRowsToContents()
+    table_run.setSortingEnabled(True)
 
 def clickedCell(fin=True):
     if fin:
-        thread_children = worker([modelFin],children=True)
+        thread_children = worker([modelFin],children=True, view=table_fin)
     else:
-        thread_children = worker([modelRun],children=True)
+        thread_children = worker([modelRun],children=True, view=table_run)
+    thread_children.started.connect(lambda: sb.showMessage('Aquring child jobs'))
     thread_children.finished.connect(lambda: thread_children.buttonDisabler(True))
     thread_children.finished.connect(lambda: show_children())
     thread_children.start()
 
 def show_children():
     tabs_widget.addTab(tab_children,'Children')
+    table_children.setModel(modelChildren)
+    layout_children.addWidget(table_children)
+    tab_children.setLayout(layout_children)
+    table_children.resizeColumnsToContents()
+    table_children.resizeRowsToContents()
+    table_children.setSortingEnabled(True)
+    sb.showMessage('Child jobs aquired')
 
 
 if __name__ == '__main__':
-    num_cores = cpu_count()
+    # num_cores = cpu_count()
     log = False #Enables writing jobs' names in the log
     #Connect to the server, aborting function if it's not availible
     server_adress = "http://proxy:algous@92.63.64.132:5002"
@@ -277,21 +296,22 @@ if __name__ == '__main__':
     tabs_widget.addTab(tab_main_jobs,'Jobs')
 
     #Tableviews
-    table_unfin = QtGui.QTableView()
+    table_run = QtGui.QTableView()
     table_fin = QtGui.QTableView()
     table_children = QtGui.QTableView()
 
-    table_unfin.doubleClicked.connect(lambda: clickedCell(False))
+    table_run.doubleClicked.connect(lambda: clickedCell(False))
     table_fin.doubleClicked.connect(lambda: clickedCell(True))
     
 
     #Creating entities: Running and Finished
-    modelFin = jobsTable(hq_server, True, tab_main_jobs)
-    modelRun = jobsTable(hq_server, False, tab_main_jobs)
+    modelFin = jobsTable(True)
+    modelRun = jobsTable(False)
+    modelChildren = jobsTable(False,children=True)
 
     #Linking entities to tableviews
     table_fin.setModel(modelFin)
-    table_unfin.setModel(modelRun)
+    table_run.setModel(modelRun)
 
     upd_button = QtGui.QPushButton('Get Jobs', tab_main_jobs)
     upd_button.clicked.connect(lambda: upd(modelRun,modelFin))
@@ -304,12 +324,14 @@ if __name__ == '__main__':
 
     # Setting up the layout
     
-    main_layout = QtGui.QVBoxLayout(mainWindow)
-    layout_jobs_tab = QtGui.QVBoxLayout(tab_main_jobs)
-    main_layout.addWidget(tabs_widget)
+    layout_main = QtGui.QVBoxLayout(mainWindow)
+    layout_jobs_tab = QtGui.QVBoxLayout()
+    layout_children = QtGui.QVBoxLayout()
+
+    layout_main.addWidget(tabs_widget)
     layout_jobs_tab.addWidget(upd_button)
     layout_jobs_tab.addWidget(QtGui.QLabel("<center><h3>Unfinished jobs</h3></center>"))
-    layout_jobs_tab.addWidget(table_unfin)
+    layout_jobs_tab.addWidget(table_run)
     layout_jobs_tab.addWidget(QtGui.QLabel("<center><h3>Finished jobs</h3></center>"))
     layout_jobs_tab.addWidget(table_fin)
 
@@ -318,11 +340,11 @@ if __name__ == '__main__':
     quit_btn = QtGui.QPushButton('Quit', mainWindow)
     quit_btn.clicked.connect(app.quit)
     quit_btn.setMaximumWidth(500)
-    main_layout.addWidget(quit_btn)
+    layout_main.addWidget(quit_btn)
 
-    main_layout.addWidget(sb)
+    layout_main.addWidget(sb)
     tab_main_jobs.setLayout(layout_jobs_tab)
-    mainWindow.setLayout(main_layout)
+    mainWindow.setLayout(layout_main)
     # QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('cleanlooks'))
     mainWindow.show()
 
