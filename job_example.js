@@ -1,0 +1,22 @@
+{
+    'status': 'succeeded', 
+    'priority': 5, 
+    'logs': [['setting status to succeeded', <DateTime '20161101T18:35:09' at 7fc485205098>]], 
+    'tags': ['single'], 
+    'conditions': [], 
+    'clients': [], 
+    'clientsOnHold': [], 
+    'children': [19570, 19571, 19572, 19573, 19574, 19575, 19576, 19577, 19578, 19579, 19580, 19581, 19582, 19583, 19584, 19585, 19586, 19587, 19588, 19589, 19590, 19591, 19592, 19593, 19594, 19595, 19596], 
+    'showBlockedClientsWarning': False, 
+    'overallProgress': 1.0, 
+    'ETA': 0, 
+    'parents': [], 
+    'queueTime': <DateTime '20161101T17:43:17' at 7fc485205248>, 
+    'startTime': <DateTime '20161101T17:43:17' at 7fc485205290>, 
+    'threadId': None, 
+    'progress': 1.0, 
+    'endTime': <DateTime '20161101T22:35:09' at 7fc4852052d8>, 
+    'uiStatus': 'succeeded', 
+    'id': 19569, 
+    'name': 'trailer_turbo_0410_0095.sky_ver06'
+}
