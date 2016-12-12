@@ -235,17 +235,16 @@ def center_window(obj):
 def upd(model1,model2):
     thread_upd = worker([model1,model2])
     thread_upd.finished.connect(lambda: thread_upd.buttonDisabler(True))
-    thread_upd.finished.connect(lambda: resizeTableSlot())
+    thread_upd.finished.connect(lambda: resizeTableSlot([table_fin,table_run]))
     thread_upd.started.connect(lambda: thread_upd.buttonDisabler(False))
     thread_upd.start()
 
-def resizeTableSlot():
-    table_fin.resizeColumnsToContents()
-    table_fin.resizeRowsToContents()
-    table_fin.setSortingEnabled(True)
-    table_run.resizeColumnsToContents()
-    table_run.resizeRowsToContents()
-    table_run.setSortingEnabled(True)
+def resizeTableSlot(obj):
+    for i in obj:
+        i.resizeColumnsToContents()
+        i.resizeRowsToContents()
+        i.setSortingEnabled(True)
+
 
 def clickedCell(fin=True):
     if fin:
@@ -262,9 +261,7 @@ def show_children():
     table_children.setModel(modelChildren)
     layout_children.addWidget(table_children)
     tab_children.setLayout(layout_children)
-    table_children.resizeColumnsToContents()
-    table_children.resizeRowsToContents()
-    table_children.setSortingEnabled(True)
+    resizeTableSlot([table_children])
     sb.showMessage('Child jobs aquired')
 
 
