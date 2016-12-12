@@ -83,6 +83,7 @@ class jobsTable(QtCore.QAbstractTableModel):
         if log: print "getting Finished jobs"
         fin_jobs_ids = self.server.getFinishedRootJobIds()
         fin_jobs = self.server.getJobs(fin_jobs_ids)
+        if log: print "Data from server acqured!"
         array = []
         for i,item in enumerate(fin_jobs):
             array.append([])
@@ -100,6 +101,7 @@ class jobsTable(QtCore.QAbstractTableModel):
         if array!=[]:
             self.cols = len(array[0])
             self.rows = len(array)
+        if log: print "array processed"
         return array #returns only necessary list of values
         #return fin_jobs #returns the whole dictionary
             
@@ -109,7 +111,9 @@ class jobsTable(QtCore.QAbstractTableModel):
         if log: print "getting Uninished jobs"
         run_jobs_ids = self.server.getUnfinishedRootJobIds()
         run_jobs = self.server.getJobs(run_jobs_ids)
+        if log: print "Data from server acqured!"
         array = []
+        srv_time = self.server.getServerTime()
         for i,item in enumerate(run_jobs):
             array.append([])
             array[i].append(item['id']) #ID 0
@@ -119,8 +123,8 @@ class jobsTable(QtCore.QAbstractTableModel):
             array[i].append(round(item['progress']*100)) #Progress 4
             array[i].append(item['queueTime'].value) #Submission time 5
             array[i].append("Submitted By")
-            if item['startTime'] and self.server.getServerTime(): #checks if both timestamps exist
-                array[i].append(self.spentTime(item['startTime'],self.server.getServerTime())) #Elapsed time 6
+            if item['startTime'] and srv_time: #checks if both timestamps exist
+                array[i].append(self.spentTime(item['startTime'],srv_time)) #Elapsed time 6
             else:
                 array[i].append(None)
             if item['ETA']: #ETA 7
@@ -129,14 +133,16 @@ class jobsTable(QtCore.QAbstractTableModel):
         if array!=[]:
             self.cols = len(array[0])
             self.rows = len(array)
+        if log: print "array processed"
         return array #returns only necessary list of lists of values
 
     def getChildren(self,parentId):
         children_ids = self.server.getJob(parentId)['children']
         children_jobs = self.server.getJobs(children_ids)
-
         array = []
-        for i,item in enumerate(children_jobs):
+        i = 0
+        srv_time = self.server.getServerTime()
+        for item in children_jobs:
             array.append([])
             array[i].append(item['id'])
             array[i].append(item['name'])
@@ -148,8 +154,8 @@ class jobsTable(QtCore.QAbstractTableModel):
                 array[i].append(item['startTime'])
             else:
                 array[i].append(None)
-            if item['startTime'] and self.server.getServerTime(): #checks if both timestamps exist
-                array[i].append(self.spentTime(item['startTime'],self.server.getServerTime())) #Elapsed time
+            if item['startTime'] and srv_time: #checks if both timestamps exist
+                array[i].append(self.spentTime(item['startTime'],srv_time)) #Elapsed time
             else:
                 array[i].append(None)
             if item['startTime'] and item['endTime']: #check if both timestamps exist
@@ -160,10 +166,10 @@ class jobsTable(QtCore.QAbstractTableModel):
                 array[i].append(item['clients'][0]['hostname'])
             else:
                 array[i].append(None)
+            i = i + 1
         if array!=[]:
             self.cols = len(array[0])
             self.rows = len(array)
-            # print array
         self.arraydata = array
         return array
 
