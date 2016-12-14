@@ -7,10 +7,9 @@ import operator
 import time
 from datetime import datetime
 from PyQt4 import QtCore, QtGui
-from multiprocessing import cpu_count
 
 class worker(QtCore.QThread):
-    # testsignal = QtCore.pyqtSignal(object, 'bool')
+    resize = QtCore.pyqtSignal()
     def __init__(self, models, children=False, view=None):
         super(self.__class__,self).__init__()
         self.models = models
@@ -36,6 +35,7 @@ class worker(QtCore.QThread):
             for i in self.models:
                 try:
                     i.update_models()
+                    self.resize.emit()
                 except Exception:
                     print "Failed to update"
         else:            
@@ -59,6 +59,7 @@ class jobsTable(QtCore.QAbstractTableModel):
         self.finished = finished
         self.cols = 0
         self.rows = 0
+        self.arraydata = None
         # self.update_models()
         #Headers
         if children:
@@ -221,13 +222,16 @@ class jobsTable(QtCore.QAbstractTableModel):
     def sort(self, Ncol, order):
         """Sort table by given column number.
         """
-        self.emit(QtCore.SIGNAL("layoutAboutToBeChanged()"))
-        self.arraydata = sorted(self.arraydata, key=operator.itemgetter(Ncol))
-        if order == QtCore.Qt.DescendingOrder:
-            self.arraydata.reverse()
-        self.emit(QtCore.SIGNAL("layoutChanged()"))
+        self.layoutAboutToBeChanged.emit()
+        if self.arraydata:
+            self.arraydata = sorted(self.arraydata, key=operator.itemgetter(Ncol))
+            if order == QtCore.Qt.DescendingOrder:
+                self.arraydata.reverse()
+        self.layoutChanged.emit()
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
+        if not(self.arraydata):
+            return QtCore.QVariant()
         if self.format(index,role):
             return self.format(index,role)
         return QtCore.QVariant(self.arraydata[index.row()][index.column()])
@@ -239,9 +243,9 @@ def center_window(obj):
     obj.move(qr.topLeft())
 
 def upd(model1,model2):
-    thread_upd = worker([model1,model2])
+    thread_upd = worker([model2,model1])
     thread_upd.finished.connect(lambda: thread_upd.buttonDisabler(True))
-    thread_upd.finished.connect(lambda: resizeTableSlot([table_fin,table_run]))
+    thread_upd.resize.connect(lambda: resizeTableSlot([table_fin,table_run]))
     thread_upd.started.connect(lambda: thread_upd.buttonDisabler(False))
     thread_upd.start()
 
@@ -251,7 +255,6 @@ def resizeTableSlot(obj):
         i.resizeRowsToContents()
         i.setSortingEnabled(True)
 
-
 def clickedCell(fin=True):
     if fin:
         thread_children = worker([modelFin],children=True, view=table_fin)
@@ -259,7 +262,7 @@ def clickedCell(fin=True):
         thread_children = worker([modelRun],children=True, view=table_run)
     thread_children.started.connect(lambda: sb.showMessage('Aquring child jobs'))
     thread_children.finished.connect(lambda: thread_children.buttonDisabler(True))
-    thread_children.finished.connect(lambda: show_children())
+    thread_children.finished.connect(show_children)
     thread_children.start()
 
 def show_children():
@@ -270,13 +273,14 @@ def show_children():
     resizeTableSlot([table_children])
     sb.showMessage('Child jobs aquired')
 
+def getClientInfo():
+    
+    pass
 
 if __name__ == '__main__':
-    # num_cores = cpu_count()
     log = False #Enables writing jobs' names in the log
     #Connect to the server, aborting function if it's not availible
     server_adress = "http://proxy:algous@92.63.64.132:5002"
-    #server_adress = "http://fx25:5002/"
     try:
         hq_server = xmlrpclib.ServerProxy(server_adress)
         print "Server is reachable: " + str(hq_server.ping())
@@ -305,6 +309,7 @@ if __name__ == '__main__':
 
     table_run.doubleClicked.connect(lambda: clickedCell(False))
     table_fin.doubleClicked.connect(lambda: clickedCell(True))
+    table_children.doubleClicked.connect(getClientInfo)
     
 
     #Creating entities: Running and Finished

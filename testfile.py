@@ -27,6 +27,4 @@ def getFinishedJobs():
         #TODO: find API function that returns "submitted by" 5
     return array #returns only necessary list of values
 
-aa = getFinishedJobs()
-for i in aa:
-    if type(i[4])!=type(None): print i[4].value
+print hq_server.getClientsByHostname(['node132'])
