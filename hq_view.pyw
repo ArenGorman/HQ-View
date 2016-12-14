@@ -1,5 +1,9 @@
 #!/bin/python
-#TODO: use multithreading/multiprocessing for getting jobs
+"""
+#TODO: 
+ - add toolbar
+ - 
+"""
 
 import xmlrpclib
 import sys
@@ -50,21 +54,27 @@ class jobsTable(QtCore.QAbstractTableModel):
 
     Original methods:
     getFinishedJobs()::list()
-
+    
+    index property means type of the table:
+    0 - default (None)
+    1 - Running Jobs
+    2 - Finished Jobs
+    3 - Child Jobs
+    4 - 
     """
-    def __init__(self, finished, server=None, children=False, parent=None):
+    def __init__(self, index=0, server=None, parent=None):
         super(self.__class__,self).__init__()
         # QtCore.QAbstractTableModel.__init__(self, parent)
         self.server = xmlrpclib.ServerProxy(server_adress)
-        self.finished = finished
+        self.index = index
         self.cols = 0
         self.rows = 0
         self.arraydata = None
         # self.update_models()
         #Headers
-        if children:
+        if self.index==3:
             self.headerdata = ['Id','Name','Priority','Status','Progress','Submitted By','Start time','Elapsed time','Completion time', 'Clients']
-        elif finished:
+        elif self.index==2:
             self.headerdata = ['Id','Name','Status','Time submitted','Submitted by','Completion time']
         else:
             self.headerdata = ['Id','Name','Priority','Status','Progress','Time submitted','Submitted by','Elapsed time','ETA']
@@ -72,14 +82,14 @@ class jobsTable(QtCore.QAbstractTableModel):
 
     def getJobs(self):
         #This function returns class' property "arraydata" to represent data for the table
-        if self.finished:
+        if self.index==2:
             self.arraydata = self.getFinishedJobs()
-        else:
+        elif self.index==1:
             self.arraydata = self.getRunningJobs()
         return self.arraydata
 
     def getFinishedJobs(self):
-        if self.finished==False:
+        if self.index==1:
             return
         if log: print "getting Finished jobs"
         fin_jobs_ids = self.server.getFinishedRootJobIds()
@@ -91,7 +101,7 @@ class jobsTable(QtCore.QAbstractTableModel):
             array[i].append(item['id']) #ID 0
             array[i].append(item['name']) #Name 1
             array[i].append(item['status']) #Status 2
-            array[i].append(item['queueTime'].value) #Time submitted, str format 3 
+            array[i].append(str(datetime.strptime(item['queueTime'].value,"%Y%m%dT%H:%M:%S"))) #Time submitted, str format 3 
             array[i].append("Submitted By") # Submitted by 4
             #TODO: find API function that returns "submitted by" 5
             if item['startTime'] and item['endTime']: #check if both timestamps exist
@@ -107,7 +117,7 @@ class jobsTable(QtCore.QAbstractTableModel):
         #return fin_jobs #returns the whole dictionary
             
     def getRunningJobs(self):
-        if self.finished==True:
+        if self.index==2:
             return
         if log: print "getting Uninished jobs"
         run_jobs_ids = self.server.getUnfinishedRootJobIds()
@@ -122,7 +132,8 @@ class jobsTable(QtCore.QAbstractTableModel):
             array[i].append(item['priority']) #Priority 2
             array[i].append(item['status']) #Status 3
             array[i].append(round(item['progress']*100)) #Progress 4
-            array[i].append(item['queueTime'].value) #Submission time 5
+            # array[i].append(item['queueTime'].value) #Submission time 5
+            array[i].append(str(datetime.strptime(item['queueTime'].value,"%Y%m%dT%H:%M:%S"))) #Submission time 5
             array[i].append("Submitted By")
             if item['startTime'] and srv_time: #checks if both timestamps exist
                 array[i].append(self.spentTime(item['startTime'],srv_time)) #Elapsed time 6
@@ -152,7 +163,7 @@ class jobsTable(QtCore.QAbstractTableModel):
             array[i].append(round(item['progress']*100))
             array[i].append("Submitted By")
             if item['startTime']:
-                array[i].append(item['startTime'])
+                array[i].append(str(datetime.strptime(item['startTime'].value,"%Y%m%dT%H:%M:%S")))
             else:
                 array[i].append(None)
             if item['startTime'] and srv_time: #checks if both timestamps exist
@@ -183,9 +194,9 @@ class jobsTable(QtCore.QAbstractTableModel):
     def spentTime(self,in_time,out_time, string=True): 
         # Computes spent time by subtraction of startTime from endTime or ServerTime
         if string:
-            return str(datetime.strptime(str(out_time), "%Y%m%dT%H:%M:%S")-datetime.strptime(str(in_time), "%Y%m%dT%H:%M:%S"))
+            return str(datetime.strptime(out_time.value, "%Y%m%dT%H:%M:%S")-datetime.strptime(in_time.value, "%Y%m%dT%H:%M:%S"))
         else:
-            return datetime.strptime(str(out_time), "%Y%m%dT%H:%M:%S")-datetime.strptime(str(in_time), "%Y%m%dT%H:%M:%S")
+            return datetime.strptime(out_time.value, "%Y%m%dT%H:%M:%S")-datetime.strptime(in_time.value, "%Y%m%dT%H:%M:%S")
     
     def format(self,index,role):
         if not index.isValid():
@@ -272,10 +283,14 @@ def show_children():
     tab_children.setLayout(layout_children)
     resizeTableSlot([table_children])
     sb.showMessage('Child jobs aquired')
+    tabs_widget.setCurrentIndex(1)
 
 def getClientInfo():
+    tabs_widget.addTab(tab_client, "Client Info")
+    sb.showMessage('Client info aquired')
+    tabs_widget.setCurrentIndex(2)
+
     
-    pass
 
 if __name__ == '__main__':
     log = False #Enables writing jobs' names in the log
@@ -283,7 +298,7 @@ if __name__ == '__main__':
     server_adress = "http://proxy:algous@92.63.64.132:5002"
     try:
         hq_server = xmlrpclib.ServerProxy(server_adress)
-        print "Server is reachable: " + str(hq_server.ping())
+        print "Server is reachable: " + str(hq_server.ping()) + "\n" + "server version is " + str(hq_server.getVersion())
     except:
         print "Unable to connect to HQueue server." #TODO: add GUI implementation
         sys.exit()
@@ -295,11 +310,13 @@ if __name__ == '__main__':
     mainWindow.setWindowIcon(QtGui.QIcon("/studio/tools/icons/hou.png"))
     mainWindow.setGeometry(0,0,1400,1200)
     center_window(mainWindow)
+    mainWindow.showMaximized()
 
     #Tabs
     tabs_widget = QtGui.QTabWidget(mainWindow)
     tab_main_jobs = QtGui.QWidget()
     tab_children = QtGui.QWidget()
+    tab_client = QtGui.QWidget()
     tabs_widget.addTab(tab_main_jobs,'Jobs')
 
     #Tableviews
@@ -313,9 +330,10 @@ if __name__ == '__main__':
     
 
     #Creating entities: Running and Finished
-    modelFin = jobsTable(True)
-    modelRun = jobsTable(False)
-    modelChildren = jobsTable(False,children=True)
+    modelFin = jobsTable(index=2)
+    modelRun = jobsTable(index=1)
+    modelChildren = jobsTable(index=3)
+    modelClient = jobsTable(index=4)
 
     #Linking entities to tableviews
     table_fin.setModel(modelFin)
@@ -353,7 +371,7 @@ if __name__ == '__main__':
     layout_main.addWidget(sb)
     tab_main_jobs.setLayout(layout_jobs_tab)
     mainWindow.setLayout(layout_main)
-    # QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('cleanlooks'))
+    QtGui.QApplication.setStyle(QtGui.QStyleFactory.create('cleanlooks'))
     mainWindow.show()
 
     # Getting the jobs after UI loaded

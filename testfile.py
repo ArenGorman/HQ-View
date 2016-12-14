@@ -1,4 +1,6 @@
 import xmlrpclib, time
+
+from datetime import datetime
 server_adress = "http://proxy:algous@92.63.64.132:5002"
     #server_adress = "http://fx25:5002/"
 try:
@@ -27,4 +29,7 @@ def getFinishedJobs():
         #TODO: find API function that returns "submitted by" 5
     return array #returns only necessary list of values
 
-print hq_server.getClientsByHostname(['node132'])
+a=hq_server.getClientsByHostname(['node158'])[0]['lastHeartbeat']
+print datetime.strptime(a.value,"%Y%m%dT%H:%M:%S")
+print dir(a)
+
