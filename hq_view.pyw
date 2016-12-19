@@ -60,7 +60,7 @@ class jobsTable(QtCore.QAbstractTableModel):
     1 - Running Jobs
     2 - Finished Jobs
     3 - Child Jobs
-    4 - 
+    4 - Client jobs
     """
     def __init__(self, index=0, server=None, parent=None):
         super(self.__class__,self).__init__()
@@ -341,7 +341,7 @@ if __name__ == '__main__':
 
     upd_button = QtGui.QPushButton('Get Jobs', tab_main_jobs)
     upd_button.clicked.connect(lambda: upd(modelRun,modelFin))
-    upd_button.setMaximumWidth(500)
+    upd_button.setMaximumWidth(300)
 
     sb = QtGui.QStatusBar(mainWindow)
     sb.setStyleSheet('.QStatusBar { background-color: rgb(220, 220, 255); border:1px solid rgb(170, 170, 170); }')
@@ -360,12 +360,11 @@ if __name__ == '__main__':
     layout_jobs_tab.addWidget(table_run)
     layout_jobs_tab.addWidget(QtGui.QLabel("<center><h3>Finished jobs</h3></center>"))
     layout_jobs_tab.addWidget(table_fin)
-
     
     #Quit btn
     quit_btn = QtGui.QPushButton('Quit', mainWindow)
     quit_btn.clicked.connect(app.quit)
-    quit_btn.setMaximumWidth(500)
+    quit_btn.setMaximumWidth(300)
     layout_main.addWidget(quit_btn)
 
     layout_main.addWidget(sb)
