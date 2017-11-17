@@ -1,6 +1,11 @@
 #!/bin/python
 """
-#TODO: 
+ 
+This is a desktop version of HQueue client, avalible via browser
+
+Everything is implemented using hqueue python api
+
+#TODO:
  - add toolbar
  - 
 """
@@ -13,6 +18,12 @@ from datetime import datetime
 from PyQt4 import QtCore, QtGui
 
 class worker(QtCore.QThread):
+    """
+    This is a separate class, mainly used to get information
+    from the server independently from main gui loop
+
+    
+    """
     resize = QtCore.pyqtSignal()
     def __init__(self, models, children=False, view=None):
         super(self.__class__,self).__init__()
@@ -50,7 +61,7 @@ class worker(QtCore.QThread):
 
 class jobsTable(QtCore.QAbstractTableModel):
     """
-    This class contains two type methods - overrided native PyQt methods and original ones.
+    This class contains two type of methods: overrided native PyQt methods and original ones.
 
     Original methods:
     getFinishedJobs()::list()
@@ -60,7 +71,7 @@ class jobsTable(QtCore.QAbstractTableModel):
     1 - Running Jobs
     2 - Finished Jobs
     3 - Child Jobs
-    4 - Client jobs
+    4 - Clients
     """
     def __init__(self, index=0, server=None, parent=None):
         super(self.__class__,self).__init__()
@@ -123,6 +134,7 @@ class jobsTable(QtCore.QAbstractTableModel):
         run_jobs_ids = self.server.getUnfinishedRootJobIds()
         run_jobs = self.server.getJobs(run_jobs_ids)
         if log: print "Data from server acqured!"
+            # print run_jobs
         array = []
         srv_time = self.server.getServerTime()
         for i,item in enumerate(run_jobs):
@@ -231,7 +243,8 @@ class jobsTable(QtCore.QAbstractTableModel):
         return QtCore.QVariant()  
 
     def sort(self, Ncol, order):
-        """Sort table by given column number.
+        """
+            Sort table by given column number.
         """
         self.layoutAboutToBeChanged.emit()
         if self.arraydata:
@@ -293,9 +306,10 @@ def getClientInfo():
     
 
 if __name__ == '__main__':
-    log = False #Enables writing jobs' names in the log
+    log = True #Enables writing jobs' names in the log
     #Connect to the server, aborting function if it's not availible
-    server_adress = "http://proxy:algous@92.63.64.132:5002"
+    #server_adress = "http://proxy:algous@92.63.64.132:5002"
+    server_adress = "http://fileserver:5002"
     try:
         hq_server = xmlrpclib.ServerProxy(server_adress)
         print "Server is reachable: " + str(hq_server.ping()) + "\n" + "server version is " + str(hq_server.getVersion())
